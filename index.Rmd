@@ -1,0 +1,135 @@
+---
+title: "Human Activity Recognition"
+author: "Harish"
+date: "2/24/2021"
+output: html_document
+---
+
+## Introduction 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har 
+
+we will try to build a model to classify exercised to 5 different classes
+
+## Table of Content 
+
+1. Data Exploration
+2. Data Splitting : Training and Testing data
+3. Models Fit 
+4. Model Testing 
+5. Summary
+
+
+## Data Explorataion
+
+The training data for this project is downloaded from bellow link
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+```{r}
+library(caret)
+data<-read.csv("pml-training.csv")
+dim(data)
+```
+
+
+```{r}
+str(data)
+```
+
+So, There are 160 Variables and each sample is classified into specific group in column "classee"
+
+### Missing Values 
+Lets check if there are any missing values 
+```{r}
+apply(is.na(data),2,sum)
+```
+
+There are multiple columns with NAs, if more than 50% values in the column are missing than we will drop that column from our data .We also, se few unnecosary charater columns with no values in them, we drop them to 
+
+
+```{r}
+#Remove missing values 
+
+colNAData<-apply(is.na(data),2,sum)
+colWithNa<-colNAData[colNAData>0.5*nrow(data)]
+
+drop<-names(colWithNa)
+
+newData<-data[,!(names(data)%in%drop)]
+newData$classe<-as.factor(newData$classe)
+#filter unncessory columns in the data 
+#filter character columns 
+charColumnIndex<-sapply(newData, is.character)
+newData<-newData[,!charColumnIndex]
+
+#filter unncessary columns at the start of data 
+#X ,raw_timestamp_part_1,raw_timestamp_part_2,num_window
+
+newData<-subset(newData,select = -c(1:4))
+```
+
+
+## 2. Data Splitting 
+
+we will create three datasets for our model training and testing 
+1. Training set 
+2. testing set 
+3. validation set 
+
+```{r}
+#build validation data 
+
+inBuild<-createDataPartition(y=newData$classe,p=0.7,list = FALSE)
+
+buildData<-newData[inBuild,]
+validation<-newData[-inBuild,]
+
+#training and testing data 
+inTrain<-createDataPartition(y=buildData$classe,p=0.7,list = FALSE)
+training<-buildData[inTrain,]
+testing<-buildData[-inTrain,]
+
+training<-training[,-c(1:7)] #removing unnecessary data from training set 
+training$classe<-as.factor(training$classe)
+```
+
+
+
+## 3. Model Generation 
+
+### Random Forest 
+
+Since our problem is concered with classifying the data based on the variables, we will use most general classification model of random forest.
+
+```{r}
+library(caret)
+library(randomForest)
+
+modelFitRF<-randomForest(classe~.,data=training)
+predRF<-predict(modelFitRF,testing)
+confusionMatrix(predRF,testing$classe)
+
+```
+
+we can see that there is 98% accuracy for testing data which is quite a good model fit.
+
+let us test our model on validation data 
+
+```{r}
+#model test on validation data
+predValidation<-predict(modelFitRF,validation)
+confusionMatrix(predValidation,validation$classe)
+```
+
+Again we get an Accuray of 98%
+
+Thus out of sample error rate is 2%
+
+## Summary 
+
+We processed the human activity data and fitted a Random forest model to it. The accuracy on testing and validation data is 98% and out sample error rate is 2%
+
+
+
